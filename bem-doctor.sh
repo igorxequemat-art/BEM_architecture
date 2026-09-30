@@ -76,15 +76,28 @@ echo "— Elo fora de git (proteção) —"
 done
 
 echo
-echo "— Kit BEM nos territórios —"
-# territórios = diretórios que contêm um elo
+echo "— Kit BEM nos projetos —"
+# O Elo mora na raiz da EMPRESA; os projetos são as pastas abaixo dela (ver README,
+# "Estrutura de pastas"). O kit (AGENTS/CLAUDE/BRIEFING/TASKS/CHATS) é do projeto, não
+# da empresa: procurá-lo ao lado do Elo acusava falta em toda instalação correta.
+# Subpasta que tem Elo próprio é outro território e se checa na volta dela.
 [ "$N_ELOS" -gt 0 ] && for ELO in "${ELOS[@]}"; do
-  PROJ="$(dirname "$ELO")"
-  FALTAM=""
-  for F in AGENTS.md CLAUDE.md BRIEFING.md TASKS.md CHATS.md; do
-    [ -f "$PROJ/$F" ] || FALTAM="$FALTAM $F"
+  TERR="$(dirname "$ELO")"
+  N_PROJ=0
+  for PROJ in "$TERR"/*/; do
+    [ -d "$PROJ" ] || continue
+    PROJ="${PROJ%/}"
+    ls "$PROJ"/.*.elo.env >/dev/null 2>&1 && continue
+    N_PROJ=$((N_PROJ+1))
+    FALTAM=""
+    for F in AGENTS.md CLAUDE.md BRIEFING.md TASKS.md CHATS.md; do
+      [ -f "$PROJ/$F" ] || FALTAM="$FALTAM $F"
+    done
+    [ -z "$FALTAM" ] \
+      && ok "$(basename "$TERR")/$(basename "$PROJ"): kit completo" \
+      || falha "$(basename "$TERR")/$(basename "$PROJ"): falta$FALTAM"
   done
-  [ -z "$FALTAM" ] && ok "$(basename "$PROJ"): kit completo" || falha "$(basename "$PROJ"): falta$FALTAM"
+  [ "$N_PROJ" -eq 0 ] && echo "  ℹ️  $(basename "$TERR"): território sem projeto ainda"
 done
 
 echo
