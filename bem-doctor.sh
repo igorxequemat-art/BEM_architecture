@@ -48,9 +48,16 @@ fi
 
 echo
 echo "— Elos (presença, nunca conteúdo) —"
-# descobre todo .<ticker>.elo.env até 2 níveis abaixo da raiz
-mapfile -t ELOS < <(find "$BEM_ROOT" -maxdepth 3 -type f -name '.*.elo.env' 2>/dev/null)
-if [ "${#ELOS[@]}" -eq 0 ]; then
+# descobre todo .<ticker>.elo.env até 2 níveis abaixo da raiz.
+# Sem mapfile: ele é do bash 4+, e o macOS ainda traz o bash 3.2. Sob `set -u`,
+# a ausência dele deixava ELOS indefinido e o doctor pulava em silêncio as duas
+# últimas seções, terminando em "🟢 Tudo são" sem ter olhado nada.
+ELOS=(); N_ELOS=0
+while IFS= read -r _LINHA; do
+  [ -z "$_LINHA" ] && continue
+  ELOS[$N_ELOS]="$_LINHA"; N_ELOS=$((N_ELOS+1))
+done < <(find "$BEM_ROOT" -maxdepth 3 -type f -name '.*.elo.env' 2>/dev/null | sort)
+if [ "$N_ELOS" -eq 0 ]; then
   falha "nenhum elo (.<ticker>.elo.env) encontrado sob $BEM_ROOT"
 else
   for ELO in "${ELOS[@]}"; do ok "elo presente: ${ELO#$BEM_ROOT/}"; done
@@ -59,8 +66,7 @@ fi
 echo
 echo "— Elo fora de git (proteção) —"
 # para cada território que é repo git, confirma que o próprio elo está ignorado
-for ELO in "${ELOS[@]:-}"; do
-  [ -z "$ELO" ] && continue
+[ "$N_ELOS" -gt 0 ] && for ELO in "${ELOS[@]}"; do
   DIR="$(dirname "$ELO")"
   if [ -d "$DIR/.git" ]; then
     git -C "$DIR" check-ignore -q "$(basename "$ELO")" 2>/dev/null \
@@ -72,8 +78,7 @@ done
 echo
 echo "— Kit BEM nos territórios —"
 # territórios = diretórios que contêm um elo
-for ELO in "${ELOS[@]:-}"; do
-  [ -z "$ELO" ] && continue
+[ "$N_ELOS" -gt 0 ] && for ELO in "${ELOS[@]}"; do
   PROJ="$(dirname "$ELO")"
   FALTAM=""
   for F in AGENTS.md CLAUDE.md BRIEFING.md TASKS.md CHATS.md; do
